@@ -53,21 +53,21 @@ def precipitation():
 
     # Query all using date as key and prcp as value
 
-    query_date = "2016-12-25"
+    query_date = "2016-8-23"
 
-    results_precip = session.query(Measurement.date, func.sum(Measurement.prcp)).\
+    results_precip = session.query(Measurement.date, Measurement.prcp).\
             filter(func.strftime("%Y-%m-%d", Measurement.date) >= query_date).\
                 order_by(Measurement.date).all()
     session.close()
     
-    return jsonify(results_precip)
+    #return jsonify(results_precip)
 
     # Create a dictionary from the row data and append the precipitation data
     precipitation_data = []
     for date, prcp in results_precip:
         precipitation_dict = {}
         precipitation_dict["date"] = date
-        precipitation_dict["prcp"] = precipitation
+        precipitation_dict["prcp"] = prcp
         precipitation_data.append(precipitation_dict)
     
     return jsonify(precipitation_data)
@@ -80,9 +80,12 @@ def station():
     station_name = session.query(Station.station, Station.name).all()
     # station_list = session.query(Measurement.station).all()
     # station_query = station_name.union(station_list)
+
+    station_query = list(np.ravel(station_name))
+
     session.close()
-    
-    return jsonify(station_name)
+
+    return jsonify(station_query)
 
 @app.route("/api/v1.0/tobs")
 def tobs():
@@ -97,22 +100,24 @@ def tobs():
     #         all()
     # session.close()
     
-    query_date = "2015-01-01"
+    query_date = "2016-8-23"
 
-    most_active_station = session.query(Measurement.station, Measurement.tobs).\
-    filter(Measurement.station == func.count(Measurement.station).first()).\
-    filter(func.strftime("%Y-%m-%d", Measurement.date) >= query_date).\
-        group_by(Measurement.date).\
-            order_by(Measurement.date).all()
+    tobs_query = session.query(Measurement.station, Measurement.tobs).\
+    filter(Measurement.station == 'USC00519281').\
+        filter(func.strftime("%Y-%m-%d", Measurement.date) >= query_date).\
+            group_by(Measurement.date).order_by(Measurement.date).all()
+    
+    tobs_result = list(np.ravel(tobs_query))
+
     session.close()
 
-    return jsonify(most_active_station)
+    return jsonify(tobs_result)
 
 # Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
 # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
 # When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
 
-@app.route("/api/v1.0/<start>")
+@app.route("/api/v1.0/<start>", methods = ["GET"])
 def start_date_only(start):
 
     session = Session(engine)
@@ -120,14 +125,14 @@ def start_date_only(start):
     start_date_only_results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
         filter(Measurement.date >= start).all()
 
-    result_list = list(np.ravel(start_date_only))
+    result_list = list(np.ravel(start_date_only_results))
 
     session.close()
 
     return jsonify(result_list)
 
-@app.route("/api/v1.0/<start_date>/<end_date>")
-def start_end_date(start_date, end_date):
+@app.route("/api/v1.0/<start_date>/<end_date>", methods = ["GET"])
+def start_end_date(start_date=None, end_date=None):
 
     session = Session(engine)
 
